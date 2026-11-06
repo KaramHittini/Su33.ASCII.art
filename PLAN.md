@@ -87,3 +87,38 @@ Engine: density ramp is now 20 clean coverage levels, ONE glyph each (ALT=1; ALT
 - [x] 13. Eye: anatomical LEFT eye (inner corner screen-left), angry (low angled brow, furrow, lowered upper lid, raised lower lid) (builder, eye.js).
 - [x] 14. Spiders: realistic segmented hairy spiders, ~160, depth layers, cached sprite gait frames (builder, spiders.js).
 - [x] 15. Verify (checker).
+
+---
+# v5 (user feedback 2026-11-06): new story
+New loop: eye (eye only, no face) → su33 (fly-in, top-down, explode, REASSEMBLE, flies off screen-left; hard cut) → roses (sunset rose field) → reach (Spider-Man's arm from above misses a falling hand) → loop. Swing + spider-swarm removed from the loop (files kept, unregistered).
+- [x] 16. Wiring: index.js = [eye, su33, roses, reach], transitions = [] ; stubs for roses.js / reach.js (Opus).
+- [x] 17. Eye: remove skin/brow/furrows/face; only the eye opening on black (builder, eye.js).
+- [x] 18. Su-33: after the exploded hold, reassemble, then fly off to screen-left; fadeOut false (builder, su33.js).
+- [x] 19. Roses: new sunset field-of-roses scene (builder, roses.js).
+- [x] 20. Reach: Spider-Man arm from above, falling hand, the grab misses (Opus, reach.js from swing.js SDF).
+- [x] 21. Verify: build + full loop 0 errors + screenshots desktop/phone (checker).
+
+---
+# v6 (user: "I like Spider-Man, especially the symbiote; Su-33, F-20A Tigershark, F-5E Tiger, MiG-21bis; field = peace; arm = I try to get stuff but mostly fail — improve it")
+New loop: eye (8) → symbiote Spider-Man (~10) → su33 (27.5) → jets: F-5E / F-20A / MiG-21bis passes (~16) → roses "PEACE" (10) → reach "try & fail" (~11).
+- [x] 22. symbiote.js: black-suit Spider-Man from retired swing.js SDF — crouch on a ledge (ref: symbiote crouch), moonlit rim, white emblem/lenses, tendrils, slow reveal + orbit (builder).
+- [x] 23. jets.js: three accurate jets (F-5E Tiger II, F-20A Tigershark, MiG-21bis), one dramatic pass each, name label each (builder).
+- [x] 24. reach.js: improve (better hands, falling context, fingertips brush, second attempt with a web line that falls short, fist) (Opus).
+- [x] 25. roses: calmer + "PEACE" label (Opus).
+- [x] 26. Wiring + verify (build, full loop 0 errors, screenshots desktop/phone).
+
+---
+# v7 (user: "Remove everything but keep the Flanker part, improve on it, and showcase what the Su-33 can do in real life")
+Other scenes moved to /archive. New loop (~80s): launch (ski-jump off Admiral Kuznetsov) → su33 (hero/top-down/explode/reassemble, improved) → cobra (Pugachev's Cobra) → weapons (R-73/R-27 launch + flare dump) → trap (arrested landing, wings fold) → loop.
+- [x] 27. src/su33/model.js: articulated, more detailed Su-33 (wing + stabilator fold, canards, gear, tailhook, afterburner plumes, detachable missiles, flare emitters); su33.js uses it (builder).
+- [x] 28. carrier scenes: src/su33/carrier.js (Kuznetsov) + scenes launch.js & trap.js (builder).
+- [x] 29. flight scenes: src/su33/sky.js + fx.js, scenes cobra.js & weapons.js (builder).
+- [x] 30. Wire loop + verify (build, full loop 0 errors, desktop+phone screenshots).
+
+---
+# v8 (user: "use all color that you want")
+Engine: glyphs tinted by the scene's hue (ascii.js uColor; `?mono` forces grey). Scenes must now render COLOUR (realistic palette).
+- [x] 31. ascii.js colour tint (Opus).
+- [x] 32. Colour: model.js (Su-33 navy camo, red stars, canopy, nozzles, afterburner), su33.js, carrier.js (+sea/sky), launch.js, trap.js (builder A).
+- [x] 33. Colour: sky.js, cobra.js, weapons.js (dusk sky, vapour, missile flames/smoke, flares) (builder B).
+- [x] 34. Verify (build, full loop 0 errors, screenshots desktop/phone).

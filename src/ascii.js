@@ -24,6 +24,7 @@ uniform float uGamma;
 uniform float uBrightness;
 uniform float uShimmer;
 uniform float uTime;
+uniform float uColor;     // 1: glyphs carry the scene's hue, 0: grey (?mono)
 
 float hash(vec2 p) {
   p = fract(p * vec2(123.34, 456.21));
@@ -54,7 +55,9 @@ void main() {
   if (l <= 0.012) lev = 0.0;
   float h = hash(cell + floor(uTime * 2.0 * uShimmer) * 0.137);
   float idx = lev * uAlt + floor(h * uAlt);
-  float shade = (0.55 + 0.45 * l) * min(1.0, uBrightness * 1.5);
+  // Full grey range: each glyph is also tinted by its luminance (near-black .. white), on top of
+  // the density ramp, so dim areas recede and highlights pop.
+  float shade = mix(0.1, 1.0, pow(l, 0.75)) * min(1.0, uBrightness * 1.5);
   // Sobel on neighbouring cell centres
   float tl = lumAt(cell + vec2(-1.0, 1.0)), tc = lumAt(cell + vec2(0.0, 1.0)), tr = lumAt(cell + vec2(1.0, 1.0));
   float ml = lumAt(cell + vec2(-1.0, 0.0)), mr = lumAt(cell + vec2(1.0, 0.0));
@@ -71,11 +74,17 @@ void main() {
     ang = mod(ang, 3.14159265);
     float bin = mod(floor(ang / 0.785398163 + 0.5), 4.0); // 0 horiz, 1 '/', 2 '|', 3 '\'
     idx = uEdgeBase + (bin < 0.5 ? 0.0 : (bin < 1.5 ? 2.0 : (bin < 2.5 ? 1.0 : 3.0)));
-    shade = (0.55 + 0.45 * max(0.75, l)) * uBrightness; // edges must fade with the scene
+    shade = mix(0.1, 1.0, pow(max(l, 0.45), 0.75)) * uBrightness; // edges keep the local tone, fade with the scene
   }
   vec2 uv = vec2((idx * uCellPx.x + inCell.x) / (uAtlasCount * uCellPx.x), inCell.y / uCellPx.y);
   float a = texture2D(uAtlas, uv).r;
-  gl_FragColor = vec4(vec3(a * shade), 1.0);
+  // hue of the scene at this cell, normalised to full brightness (sRGB-ish), brightness comes from shade
+  float mc = max(max(c.r, c.g), c.b);
+  vec3 tint = mc > 1e-4 ? pow(c / mc, vec3(0.4545)) : vec3(1.0);
+  float tg = dot(tint, vec3(0.2126, 0.7152, 0.0722));
+  tint = clamp(tg + (tint - tg) * 1.7, 0.0, 1.0); // thin glyphs wash colour out: boost saturation
+  tint = mix(vec3(1.0), tint, uColor);
+  gl_FragColor = vec4(a * shade * tint, 1.0);
 }
 `;
 
@@ -110,6 +119,7 @@ export class AsciiRenderer {
         uBrightness: { value: 1 },
         uShimmer: { value: 0 },
         uTime: { value: 0 },
+        uColor: { value: new URLSearchParams(location.search).has('mono') ? 0 : 1 },
       },
     });
     this.quad = new THREE.Mesh(new THREE.PlaneGeometry(2, 2), this.material);
@@ -238,6 +248,8 @@ export class AsciiRenderer {
   // overlays: [{scene, camera}] drawn on top of the base scene (no clear) — used for transitions.
   render(scene, camera, { brightness = 1, time = 0, shimmer = 1, overlays = [] } = {}) {
     const r = this.renderer;
+    if (this.raw === undefined) this.raw = new URLSearchParams(location.search).has('plain'); // debug: skip ASCII pass
+    if (this.raw) { r.setRenderTarget(null); r.setClearColor(0x000000, 1); r.clear(); r.render(scene, camera); return; }
     r.setRenderTarget(this.rt);
     r.setClearColor(0x000000, 1);
     r.clear();

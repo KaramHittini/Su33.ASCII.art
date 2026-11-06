@@ -1,16 +1,15 @@
 # HANDOFF — interests.karamhittini.com
 
-**State (v3 realism pass, 2026-11-06):** monochrome ASCII loop, Vite + three.js. Loop = eye (8s) → Spider-Man (14s) → spider-swarm overlay (3s, centred on 22s) → Su-33 (20s) = 42s.
-- Engine `src/ascii.js`: 5x9 px cells; 20 tone levels, ONE glyph each (`ALT` const; >1 = same-coverage alternates); Sobel edge glyphs only on strong outlines (threshold 0.55).
-- `eye.js`: anatomical LEFT eye (`INNER = -1`, flip to 1), angry brow/lids, web in pupil, zoom into hub.
-- `swing.js`: ray-marched SDF Spider-Man (IK joints, comic web pattern, angry framed lenses; poses stand/crouch/dive). Beats: out of lens → bust → looks right → waist → spider-sense → perched crouch (3/4 low angle) → dives off the ledge.
-- `spiders.js`: 86 pre-rendered segmented spiders (3 species × 8 gait frames) with black halos. Texture must stay NoColorSpace (sRGB made legs too dim).
-- `su33.js`: lofted Su-33, procedural camo, 3/4 hero shot → top-down → explode; title label only.
+**State (v7 Su-33 only, 2026-11-06):** monochrome ASCII loop, Vite + three.js. Loop ≈ 80s = launch (14) → su33 (27.5) → cobra (12) → weapons (12) → trap (14). Registry: `src/scenes/index.js`. Other scenes moved to `/archive` (not bundled).
+- Engine `src/ascii.js`: glyph density ramp (20 levels), each glyph shaded by luminance (0.1..1) AND tinted with the scene hue (saturation x1.7); `?mono` = grey. Scenes render full colour (dusk palette, navy camo, orange burners).
+- `src/su33/model.js`: shared articulated Su-33 — `buildSu33({missiles})` → {root, parts, rig, update}. Nose +X, up +Y, starboard +Z, metres; wheels at GROUND_Y=-2.8. rig: wing/stab fold, canards, stabs, flaps, gear, hook, airbrake, probe, afterburner plumes, missiles (detach), flareOrigins. `makeLights`/`aimLights(camera, target, lights)` — always pass `lights`.
+- `src/su33/carrier.js`: Admiral Kuznetsov (ski-jump, angled deck, island, wires, deflector) + sea/sky. `src/su33/sky.js`: flight sky + vapour trail helper.
+- Scenes: `launch.js` (wings unfold, burners, ski-jump), `su33.js` (hero → top-down → explode → reassemble → exits left), `cobra.js` (Pugachev's Cobra), `weapons.js` (R-27/R-73 launch with smoke trails, flare fans; point sprites with MAX blending), `trap.js` (approach, wire catch, wings fold).
 
-**Run:** `npm run dev` · `npm run build` · debug `?scene=eye|swing|spiders|su33`, `?t=<sec>`, `?freeze`. Parallel playwright: `playwright-cli -s=<name>` per agent.
+**Run:** `npm run dev` · `npm run build` · `?scene=<name>&t=<sec>&freeze[&plain]`; model debug `?scene=su33&rig=1&fold=1&gear=1&hook=1&ab=1&view=q3|side|plan|front|rear`. Parallel playwright: `-s=<name>`. Note: carrier sea/sky only look right in the ASCII pass, not `?plain`.
 
-**Verified:** build passes; full 45s loop 0 console errors; screenshots of every scene at 1440x900 + 390x844.
+**Verified:** build passes; full loop 0 console errors; ASCII screenshots of every scene (desktop); phone checked by builders (trap/launch phone re-framing not re-shot).
 
-**Weak spots:** middle of the spider swarm is a dense mass (edge spiders read well); Spider-Man full-body shots are smaller/dimmer than the bust; Su-33 exploded view is small (missile columns widen the frame).
+**Weak spots:** carrier deck/sea busy in ASCII (jet pops less); weapons beat 1 busy when the R-73 trail crosses the jet; trap→launch is a cut (jet position differs); afterburner plumes dim in ASCII.
 
 **Not done:** deploy (new Vercel project + `interests.karamhittini.com`) — needs user go-ahead. Not a git repo.
