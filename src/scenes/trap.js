@@ -60,7 +60,7 @@ export function createTrapScene(ctx) {
     const c = stripPt(s, lat);
     const hY = JY + approach * GS + 0.05 * Math.sin(t * 2.3) * clamp01(approach / 60);
     const decelT = clamp01((t - T_CATCH) / (T_STOP - T_CATCH));
-    const shake = t >= T_CATCH ? Math.exp(-(t - T_CATCH) * 0.9) * (t < T_STOP + 2 ? 1 : 0) : 0;
+    const shake = t >= T_CATCH ? 0.35 * Math.exp(-(t - T_CATCH) * 1.6) * (t < T_STOP + 2 ? 1 : 0) : 0;
     // attitude: nose-up on approach, derotates on touchdown, dips under arrestment
     const pitch = 7 * DEG * (1 - smooth(T_TD - 0.1, T_TD + 0.35, t)) + 2 * DEG * (smooth(T_TD - 0.1, T_TD + 0.35, t) - smooth(T_CATCH, T_STOP + 0.6, t))
       - 2.6 * DEG * Math.sin(Math.PI * clamp01((t - T_CATCH) / 1.6)) * (1 - decelT * 0.5) + 0.008 * Math.sin(t * 31) * shake;
@@ -73,7 +73,13 @@ export function createTrapScene(ctx) {
     // configuration
     rig.setGear(1);
     rig.setHook(1);
-    rig.setFlaps(1 - smooth(T_STOP + 0.4, T_STOP + 1.4, t));
+    // flaps droop to landing setting early on final, retract once stopped
+    rig.setFlaps(smooth(0.3, 2.0, t) * (1 - smooth(T_STOP + 0.4, T_STOP + 1.4, t)));
+    // airbrake: bleeds speed on final, stows for the full-power touchdown, then deploys under arrestment
+    rig.setAirbrake(Math.max(
+      smooth(0.8, 1.7, t) * (1 - smooth(T_TD - 1.8, T_TD - 0.9, t)),
+      smooth(T_CATCH, T_CATCH + 0.45, t) * (1 - smooth(T_STOP + 0.3, T_STOP + 1.2, t)),
+    ));
     rig.setCanards(0.2 * (1 - smooth(T_STOP, T_STOP + 1, t)));
     rig.setStabs(-0.1 * (1 - smooth(T_TD, T_TD + 0.6, t)));
     rig.setWingFold(smooth(T_STOP + 0.9, T_STOP + 2.9, t));

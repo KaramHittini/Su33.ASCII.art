@@ -380,6 +380,11 @@ const MSL = [
   ['R-27', 11.0, 3.0, -0.66, 0.42],
   ['R-27', 12.6, 5.6, -0.66, 0.42],
 ];
+// belly tunnel (centreline, tandem): [kind, nose x, z, hang]
+const MSL_CENTRE = [
+  ['R-27', 7.7, -1.16, 0.2],
+  ['R-27', 12.1, -1.16, 0.2],
+];
 // Station local nose axis == airframe axis; centre of the missile body sits at T(xn + L/2, s*y, z).
 // Exposed so launch scenes can place a launched missile: world pos of a missile = root * station pos.
 
@@ -511,14 +516,14 @@ export function buildSu33(opts = {}) {
     R.probe = probe;
     addPart(g, 'canopy', OFF.canopy, ORDER.canopy);
   }
-  // ---------- dorsal airbrake (hinged at the aft edge) ----------
+  // ---------- dorsal airbrake (hinged at the leading edge, aft edge rises) ----------
   {
     const g = mk();
     const plateM = mesh(plate([[7.9, -0.45], [9.9, -0.52], [9.9, 0.52], [7.9, 0.45]], 0.06,
       (u, v, w) => [u, v, fusTop(u) + w - 0.01]), 0xbcbcbc, true);
     const l1 = strip([[8.0, -0.4, fusTop(8) + 0.06], [9.8, -0.46, fusTop(9.8) + 0.06]], 0.025, 0x4a4a4a);
     const l2 = strip([[8.0, 0.4, fusTop(8) + 0.06], [9.8, 0.46, fusTop(9.8) + 0.06]], 0.025, 0x4a4a4a);
-    const H = T(9.9, 0, fusTop(9.9));
+    const H = T(7.9, 0, fusTop(7.9));
     const pv = pivot(H, [plateM, l1, l2]);
     g.add(pv);
     R.airbrake = pv;
@@ -546,20 +551,20 @@ export function buildSu33(opts = {}) {
     const WR = 0.34;
     const cz = GROUND_Y + WR; // wheel centre height
     const parts_ = [];
-    parts_.push(rod(T(4.55, 0, -0.5), T(4.65, 0, cz), 0.07, 0xeeeeee, 8));        // oleo
-    parts_.push(rod(T(4.3, 0, -0.6), T(4.62, 0, -1.4), 0.03, 0xeeeeee, 6));       // drag brace
-    parts_.push(rod(T(4.55, 0, -1.4), T(4.8, 0, -1.8), 0.025, 0xdddddd, 6));      // torque link
-    parts_.push(rod(T(4.65, -0.22, cz), T(4.65, 0.22, cz), 0.04, 0xeeeeee, 6));  // axle
-    for (const sy of [-1, 1]) parts_.push(wheel(WR, 0.13, ...T(4.65, sy * 0.19, cz)));
-    parts_.push(mesh(plate([[4.2, -0.12], [5.0, -0.12], [5.0, 0.12], [4.2, 0.12]], 0.2, (u, v, w) => [u, v, cz + 0.2 + w]), 0xaaaaaa, true)); // mudguard
-    const H = T(4.55, 0, -0.5);
+    parts_.push(rod(T(5.75, 0, -0.5), T(5.85, 0, cz), 0.07, 0xeeeeee, 8));        // oleo
+    parts_.push(rod(T(5.5, 0, -0.6), T(5.82, 0, -1.4), 0.03, 0xeeeeee, 6));       // drag brace
+    parts_.push(rod(T(5.75, 0, -1.4), T(6, 0, -1.8), 0.025, 0xdddddd, 6));      // torque link
+    parts_.push(rod(T(5.85, -0.22, cz), T(5.85, 0.22, cz), 0.04, 0xeeeeee, 6));  // axle
+    for (const sy of [-1, 1]) parts_.push(wheel(WR, 0.13, ...T(5.85, sy * 0.19, cz)));
+    parts_.push(mesh(plate([[5.4, -0.12], [6.2, -0.12], [6.2, 0.12], [5.4, 0.12]], 0.2, (u, v, w) => [u, v, cz + 0.2 + w]), 0xaaaaaa, true)); // mudguard
+    const H = T(5.75, 0, -0.5);
     const pv = pivot(H, parts_);
     g.add(pv);
     R.gearN = { pv, H };
     const p = addPart(g, 'gearN', [0, 0, 0], ORDER.gearN);
     setOff(p, [3.2, -1.7, 0]);
     const d = mk();
-    d.add(mesh(hplate([[4.0, -0.34], [5.4, -0.3], [5.4, 0.3], [4.0, 0.34]], -0.62, 0.04), 0xbababa, true));
+    d.add(mesh(hplate([[5.2, -0.34], [6.6, -0.3], [6.6, 0.3], [5.2, 0.34]], -0.62, 0.04), 0xbababa, true));
     const q = addPart(d, 'door', [-3.6, 0, -1.2], ORDER.door);
     setOff(q, [3.6, -1.2, 0]);
   }
@@ -811,32 +816,36 @@ export function buildSu33(opts = {}) {
   // ---------- missiles ----------
   const missiles = [];
   const outerMsl = []; // missiles outboard of the wing fold: follow the outer panel
+  // centre: true for the tandem belly-tunnel stations (side 0); ls = which side the exploded view lays it out on
+  const addMissile = (kind, xn, y, z, hang, s, slot, ls = s) => {
+    const g = missile(kind, hang);
+    g.position.set(...T(xn + MK[kind].L / 2, y, z));
+    const p = addPart(g, 'missile', [0, 0, 0], ORDER.missile + slot * 0.15 + (s > 0 ? 0.05 : 0), { m: { kind, s, slot, ls } });
+    const entry = {
+      mesh: g, kind, side: s, station: slot, part: p, launched: false,
+      // Detach from the airframe: returns the missile Object3D re-expressed in WORLD space
+      // (no parent). Add it to your scene and fly it. The airframe stops managing it.
+      detach() {
+        root.updateWorldMatrix(true, false);
+        g.updateWorldMatrix(true, false);
+        const m = g.matrixWorld.clone();
+        g.removeFromParent();
+        const i = parts.indexOf(p);
+        if (i >= 0) parts.splice(i, 1);
+        m.decompose(g.position, g.quaternion, g.scale);
+        entry.launched = true;
+        return g;
+      },
+    };
+    missiles.push(entry);
+    if (Math.abs(y) > WFOLD) outerMsl.push({ p, s });
+  };
   if (withMissiles) {
     for (const s of [-1, 1]) {
-      MSL.forEach(([kind, xn, y, z, hang], slot) => {
-        const g = missile(kind, hang);
-        g.position.set(...T(xn + MK[kind].L / 2, s * y, z));
-        const p = addPart(g, 'missile', [0, 0, 0], ORDER.missile + slot * 0.15 + (s > 0 ? 0.05 : 0), { m: { kind, s, slot } });
-        const entry = {
-          mesh: g, kind, side: s, station: slot, part: p, launched: false,
-          // Detach from the airframe: returns the missile Object3D re-expressed in WORLD space
-          // (no parent). Add it to your scene and fly it. The airframe stops managing it.
-          detach() {
-            root.updateWorldMatrix(true, false);
-            g.updateWorldMatrix(true, false);
-            const m = g.matrixWorld.clone();
-            g.removeFromParent();
-            const i = parts.indexOf(p);
-            if (i >= 0) parts.splice(i, 1);
-            m.decompose(g.position, g.quaternion, g.scale);
-            entry.launched = true;
-            return g;
-          },
-        };
-        missiles.push(entry);
-        if (y > WFOLD) outerMsl.push({ p, s });
-      });
+      MSL.forEach(([kind, xn, y, z, hang], slot) => addMissile(kind, xn, s * y, z, hang, s, slot));
     }
+    // two R-27s in tandem in the tunnel between the engine nacelles
+    MSL_CENTRE.forEach(([kind, xn, z, hang], i) => addMissile(kind, xn, 0, z, hang, 0, MSL.length + i, i ? 1 : -1));
   }
 
   // ---------- flare dispensers (airframe-local positions) ----------
@@ -886,7 +895,7 @@ export function buildSu33(opts = {}) {
     // Arrestor hook (0 = stowed, 1 = down).
     setHook(f) { R.hook.pv.rotation.z = 0.8 * clamp01(f); },
     // Dorsal airbrake (0..1).
-    setAirbrake(f) { R.airbrake.rotation.z = 0.85 * clamp01(f); },
+    setAirbrake(f) { R.airbrake.rotation.z = -0.75 * clamp01(f); },
     // In-flight refuelling probe extends forward (0..1).
     setProbe(f) { R.probe.position.x = 1.7 * clamp01(f); },
     // Afterburner plumes with shock diamonds behind both nozzles. glow = nozzle emissive (default = ab).

@@ -49,11 +49,11 @@ export function createSu33Scene(ctx) {
       p.off = [X - p.base.x, Y - p.base.y, Z - p.base.z];
     };
     if (portrait) {
-      r27.forEach((p, i) => (i < 5 ? place(p, 32, -4.8 + i * 2.4) : place(p, 37, 0)));
+      r27.forEach((p, i) => (i < 5 ? place(p, 32, -4.8 + i * 2.4) : place(p, 42, -2.4 + (i - 5) * 2.4)));
       [-4.8, -2.4, 2.4, 4.8].forEach((y, i) => place(r73[i], 37, y));
     } else {
       for (const s of [-1, 1]) {
-        const mine = missileParts.filter((p) => p.m.s === s).sort((a, b) => a.m.slot - b.m.slot);
+        const mine = missileParts.filter((p) => p.m.ls === s).sort((a, b) => a.m.slot - b.m.slot);
         mine.forEach((p, i) => place(p, 10.5, s * (12.6 + i * 1.15)));
       }
     }

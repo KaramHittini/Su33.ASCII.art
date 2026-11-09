@@ -200,13 +200,13 @@ export function createWeaponsScene(ctx) {
       FL.push({ te: 6.4 + salvo * 1.6 + i * 0.08, o: i % rig.flareOrigins.length, side: i % 2 ? 1 : -1, spread: 0.6 + 0.4 * ((i * 7) % 5) / 4 });
     }
   }
-  const K = 1.6, VF = 34, G = 6.5;
+  const K = 1.6, VF = 34, G = 2.2;
   const _v = new THREE.Vector3(), _o = new THREE.Vector3();
   function flareAt(f, age, out) {
     const M = jetMatrix(f.te);
     _o.copy(rig.flareOrigins[f.o]).applyMatrix4(M);
-    // ejected down and outward in the jet's frame, slowed by drag, falling, left behind by the airflow
-    _v.set(-6, -16 * f.spread, f.side * 15 * f.spread).applyQuaternion(_q.setFromRotationMatrix(M));
+    // ejected up and outward in the jet's frame, slowed by drag, then sinking slowly, left behind by the airflow
+    _v.set(-6, 20 * f.spread, f.side * 15 * f.spread).applyQuaternion(_q.setFromRotationMatrix(M));
     const dr = (1 - Math.exp(-K * age)) / K;
     out.copy(_o).addScaledVector(_v, dr);
     out.x -= VF * (age - dr);
@@ -309,7 +309,7 @@ export function createWeaponsScene(ctx) {
       render(lastT);
     },
     labels() {
-      if (lastT > 0.5 && lastT < 5.3) return [{ id: 'wpn', text: 'R-27 / R-73 LAUNCH', x: 0.06, y: 0.9 }];
+      if (lastT > 0.5 && lastT < 5.3) return [{ id: 'wpn', text: 'R-27ER / R-27ET / R-73 LAUNCH', x: 0.06, y: 0.9 }];
       if (lastT > 5.8 && lastT < 11.6) return [{ id: 'wpn', text: 'FLARES', x: 0.06, y: 0.9 }];
       return [];
     },

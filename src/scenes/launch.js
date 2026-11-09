@@ -74,7 +74,7 @@ export function createLaunchScene(ctx) {
     // configuration
     rig.setWingFold(1 - smooth(0.4, 2.4, t));
     rig.setStabFold(1 - smooth(0.4, 2.0, t));
-    rig.setFlaps(smooth(2.2, 3.2, t) * (1 - smooth(T_LIP + 1.5, T_LIP + 3, t)));
+    rig.setFlaps(smooth(1.6, 2.6, t) * (1 - smooth(T_LIP + 3.5, T_LIP + 5, t)));
     rig.setCanards(0.12 * smooth(2.2, 3.2, t) + 0.2 * smooth(T_LIP - 1.4, T_LIP - 0.2, t) - 0.25 * smooth(T_LIP + 2.5, T_LIP + 4, t));
     rig.setStabs(-0.2 * smooth(T_LIP - 1.0, T_LIP + 0.2, t) + 0.15 * smooth(T_LIP + 2.0, T_LIP + 3.5, t));
     rig.setGear(1 - smooth(T_LIP + 0.5, T_LIP + 2.0, t));
