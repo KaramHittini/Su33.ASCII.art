@@ -184,7 +184,20 @@ export function createWeaponsScene(ctx) {
 
   // ---------- jet pose in the co-moving frame ----------
   const _q = new THREE.Quaternion(), _e = new THREE.Euler(), _m = new THREE.Matrix4(), _s = new THREE.Vector3(1, 1, 1);
-  const awayAt = (t) => 0.5 * 34 * Math.pow(Math.max(0, t - T_GO), 2);
+  const V_GO = 40, TAU_GO = 0.45;
+  const awayAt = (t) => { const u = Math.max(0, t - T_GO); return V_GO * (u - TAU_GO * (1 - Math.exp(-u / TAU_GO))); };
+  // formation turbulence: each jet gets its own small, irregular bobbing / rocking (sums of incommensurate sines)
+  const wob = (seed, t, amp, out) => {
+    const f = (a, b, c) => Math.sin(t * a + seed * b) + 0.6 * Math.sin(t * c + seed * 1.7 * b) + 0.35 * Math.sin(t * (a + c) * 1.3 + seed * 2.9);
+    out.x = amp * 0.45 * f(1.3, 1.1, 2.9);
+    out.y = amp * 0.6 * f(1.7, 2.3, 3.7);
+    out.z = amp * 0.4 * f(1.1, 3.1, 2.3);
+    out.roll = amp * 0.07 * f(2.1, 0.7, 4.3);
+    out.pitch = amp * 0.025 * f(1.9, 1.9, 3.3);
+    out.yaw = amp * 0.02 * f(1.5, 2.7, 2.6);
+    return out;
+  };
+  const W = {};
   function jetPose(t) {
     const bank = -0.95 * sm(5.4, 6.3, t) * (1 - sm(9.0, T_LEVEL, t));
     const pitch = 0.04 * Math.sin(t * 0.7) + 0.16 * sm(5.6, 6.4, t) * (1 - sm(9.0, T_LEVEL, t));
@@ -271,6 +284,16 @@ export function createWeaponsScene(ctx) {
     const P = jetPose(t);
     root.position.copy(P.pos);
     root.quaternion.copy(P.quat);
+    // lead rides the same turbulence as the wingmen once the formation forms (camera does not follow it)
+    {
+      const amp = sm(10.4, 11.8, t);
+      if (amp > 0) {
+        wob(0.3, t, amp, W);
+        root.position.x += W.x; root.position.y += W.y; root.position.z += W.z;
+        _e.set(W.roll, W.yaw, W.pitch, 'XYZ');
+        root.quaternion.multiply(_q.setFromEuler(_e));
+      }
+    }
     rig.set({ fold: 0, stabFold: 0, gear: 0, hook: 0, canards: -0.08 * sm(5.6, 6.4, t), stabs: -0.12 * sm(5.6, 6.4, t), ab: 0.25 + 0.75 * sm(T_GO - 0.3, T_GO + 0.2, t) });
     jet.update(t);
     root.updateMatrixWorld(true);
@@ -289,7 +312,9 @@ export function createWeaponsScene(ctx) {
       const roll = -side * 0.3 * Math.sin(Math.PI * clamp01(a)) + (w.inverted ? -Math.PI * sm(13.0, 14.3, t) : 0)
         + 0.03 * Math.sin(t * 1.1 + w.slot[0]);
       const pitch = 0.35 * (1 - k) + 0.02 * Math.sin(t * 0.7 + w.slot[2]);
-      _e.set(roll, 0, pitch, 'XYZ');
+      wob(w.slot[0] * 0.37 + w.slot[2] * 0.11, t, 0.4 + 0.6 * k, W);
+      w.m.root.position.x += W.x; w.m.root.position.y += W.y; w.m.root.position.z += W.z;
+      _e.set(roll + W.roll, W.yaw, pitch + W.pitch, 'XYZ');
       w.m.root.quaternion.setFromEuler(_e);
       const ab = Math.max(0.25 + 0.55 * (1 - k), 0.25 + 0.75 * sm(T_GO - 0.3, T_GO + 0.2, t));
       w.m.rig.set({ fold: 0, stabFold: 0, gear: 0, hook: 0, ab, stabs: -0.1 * (1 - k) });
