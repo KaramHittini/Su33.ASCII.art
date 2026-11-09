@@ -12,6 +12,11 @@ window.addEventListener('resize', () => {
   timeline.resize();
 });
 
+// Lively Wallpaper settings hook (see wallpaper/LivelyProperties.json); harmless on the web.
+window.livelyPropertyListener = (name, val) => {
+  if (name === 'mono') ascii.material.uniforms.uColor.value = val ? 0 : 1;
+};
+
 function loop(now) {
   timeline.frame(now);
   requestAnimationFrame(loop);

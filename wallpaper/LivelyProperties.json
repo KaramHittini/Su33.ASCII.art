@@ -1,0 +1,7 @@
+{
+  "mono": {
+    "type": "checkbox",
+    "text": "Monochrome (grey, no scene tint)",
+    "value": false
+  }
+}

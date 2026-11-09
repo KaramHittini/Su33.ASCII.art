@@ -3,3 +3,4 @@ dist
 .playwright-cli
 *.png
 .vercel
+build
