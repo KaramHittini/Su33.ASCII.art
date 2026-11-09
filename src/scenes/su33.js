@@ -16,7 +16,8 @@ const smooth = (a, b, v) => {
 const FOV = 30;
 const T_EXPLODE = 9;
 const T_HOLD = 13;
-const T_RE = 16, T_CR = 19, T_EX = 21.4, T_OFF = 26.9, T_END = 27.5;
+const T_RE = 16, T_CR = 19, T_EX = 21.4, T_END = 25.0;
+const T_BURN = 1.3; // afterburner fully lit this long after T_EX; the jet then accelerates hard out of frame
 const AZ_E = 1.25, EL_E = 0.32, ROLL_E = -0.1, PITCH_E = 0.03;
 
 
@@ -181,7 +182,6 @@ export function createSu33Scene(ctx) {
     const enter = easeOutCubic(clamp01(t / 4.0));
     const live = 1 - s;
     const c = easeInOutCubic(clamp01((t - T_CR) / (T_EX - T_CR)));
-    const u = clamp01((t - T_EX) / (T_OFF - T_EX));
 
     // attitude: banked rear-3/4 cruise -> level for the top-down -> slight bank for the exit
     let roll = lerp(ROLL_A, 0, s) + (0.35 * (1 - enter) + 0.03 * Math.sin(t * 1.1)) * live;
@@ -190,8 +190,10 @@ export function createSu33Scene(ctx) {
     const k = 1 - enter;
     let exitX = 0, pitchX = 0;
     if (t >= T_EX) {
-      exitX = S.exitX * (0.12 * u + 0.88 * Math.pow(u, 2.4));
-      pitchX = 0.05 * u;
+      // slow roll while the burners light, then a hard acceleration (clears the frame ~2.8 s after T_EX)
+      const tau = t - T_EX, b = Math.max(0, tau - T_BURN);
+      exitX = S.exitX * (0.04 * tau + 0.3 * b * b);
+      pitchX = 0.05 * Math.min(1, tau / 3);
     }
     root.rotation.set(roll, 0, pitch + pitchX);
     root.position.set(-48 * k + 0.25 * Math.sin(t * 0.7) * live + exitX, 3 * k + 0.15 * Math.sin(t * 1.3) * live, -4 * k);
