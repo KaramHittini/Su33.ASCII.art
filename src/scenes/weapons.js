@@ -1,11 +1,14 @@
 // Weapons scene: the Su-33 fires an R-27 (drops from the belly, motor lights, long smoke trail) and an
-// R-73 (rails off the wing), then banks and dumps two fans of flares. Deterministic in t.
+// R-73 (rails off the wing), then banks and dumps two fans of flares. It levels out, three wingmen join in a
+// finger-four (the far-left one rolls inverted), and the formation lights burners and pulls away. Deterministic in t.
 // Co-moving frame: the jet stays near the origin, the air (smoke, flares, cloud deck) streams past along -X.
 // Model axes: metres, nose +X, up +Y, starboard +Z.
 import * as THREE from 'three';
 import { buildSu33, makeLights, aimLights } from '../su33/model.js';
 
-const DUR = 12;
+const DUR = 18;
+const T_LEVEL = 10.2;  // lead back to wings-level after the flare break
+const T_GO = 16.3;     // formation burners on, pulls away
 const FOV = 34;
 const V_AIR = 120;   // how fast smoke left in the air streams back past the jet (m/s, cinematic)
 const clamp01 = (v) => Math.max(0, Math.min(1, v));
@@ -139,6 +142,20 @@ export function createWeaponsScene(ctx) {
   const { root, rig } = jet;
   scene.add(root);
 
+  // ---------- wingmen (finger-four; offsets from the lead in the co-moving frame; screen-left = port = -Z) ----------
+  const WING = [
+    { slot: [-11, 0.4, -15], t0: 9.6, inverted: true },  // far left: rolls inverted once in position
+    { slot: [-11, 0.4, 15], t0: 9.9 },
+    { slot: [-22, 0.8, 30], t0: 10.2 },
+  ].map((w) => {
+    const m = buildSu33({ missiles: true });
+    m.rig.set({ fold: 0, stabFold: 0, gear: 0, hook: 0, ab: 0 });
+    m.root.visible = false;
+    scene.add(m.root);
+    return { ...w, m };
+  });
+  const JOIN = 3.0; // seconds to slide from behind/below into the slot
+
   // missile → its transform relative to the airframe (taken once, wings unfolded)
   rig.set({ fold: 0, stabFold: 0, gear: 0, hook: 0, ab: 0 });
   root.updateMatrixWorld(true);
@@ -167,12 +184,14 @@ export function createWeaponsScene(ctx) {
 
   // ---------- jet pose in the co-moving frame ----------
   const _q = new THREE.Quaternion(), _e = new THREE.Euler(), _m = new THREE.Matrix4(), _s = new THREE.Vector3(1, 1, 1);
+  const awayAt = (t) => 0.5 * 34 * Math.pow(Math.max(0, t - T_GO), 2);
   function jetPose(t) {
-    const bank = -0.95 * sm(5.4, 6.3, t) * (1 - 0.5 * sm(10.2, 11.5, t));
-    const pitch = 0.04 * Math.sin(t * 0.7) + 0.16 * sm(5.6, 6.4, t);
+    const bank = -0.95 * sm(5.4, 6.3, t) * (1 - sm(9.0, T_LEVEL, t));
+    const pitch = 0.04 * Math.sin(t * 0.7) + 0.16 * sm(5.6, 6.4, t) * (1 - sm(9.0, T_LEVEL, t));
     const roll = bank + 0.06 * Math.sin(t * 0.9) * (1 - sm(5.4, 6.0, t));
-    const away = 0.5 * 34 * Math.pow(Math.max(0, t - 10.2), 2);     // burners on, pulls away
-    const pos = new THREE.Vector3(away, 0.6 * Math.sin(t * 0.8) + 3 * sm(5.6, 8, t) * Math.max(0, t - 5.6) * 0.4, 0);
+    const away = awayAt(t);                                            // burners on, pulls away
+    const climb = 1.2 * (Math.min(t, T_LEVEL) - 5.6) * sm(5.6, 8, t) + 0.8 * sm(8.6, T_LEVEL + 0.6, t);
+    const pos = new THREE.Vector3(away, 0.6 * Math.sin(t * 0.8) + Math.max(0, climb), 0);
     _e.set(roll, 0, pitch, 'XYZ');
     return { pos, quat: _q.clone().setFromEuler(_e) };
   }
@@ -216,7 +235,7 @@ export function createWeaponsScene(ctx) {
 
   // ---------- cameras ----------
   const fitD = (halfW, halfH) => Math.max(halfH / tanH, halfW / (tanH * aspect));
-  const camPos = new THREE.Vector3(), camTgt = new THREE.Vector3();
+  const camPos = new THREE.Vector3(), camTgt = new THREE.Vector3(), _c3 = new THREE.Vector3();
   function cameraAt(t) {
     // beat 1: low port-side 3/4, the missiles streak off to screen-right
     const D1 = fitD(17, 9);
@@ -229,7 +248,17 @@ export function createWeaponsScene(ctx) {
     const k = sm(5.1, 6.1, t);
     camPos.lerpVectors(c1, c2, k);
     camTgt.lerpVectors(t1, t2, k);
-    if (t > 10.2) camTgt.lerp(jetPose(t).pos, sm(10.2, 11.8, t) * 0.5);
+    // beat 3: behind, above and a little left of the finger-four (port wingman = screen-left)
+    const k3 = sm(9.2, 11.0, t);
+    if (k3 > 0) {
+      const D3 = fitD(40, 17);
+      const lead = jetPose(Math.min(t, T_GO));
+      const c = new THREE.Vector3(-11, 0, 7.5).add(lead.pos);
+      _c3.set(-0.9 * D3, 0.4 * D3, -0.12 * D3).add(c);
+      camPos.lerp(_c3, k3);
+      camTgt.lerp(c, k3);
+    }
+    if (t > T_GO) camTgt.x += awayAt(t) * 0.5 * sm(T_GO, T_GO + 1.6, t);
     camera.position.copy(camPos);
     camera.up.set(0, 1, 0);
     camera.lookAt(camTgt);
@@ -242,9 +271,31 @@ export function createWeaponsScene(ctx) {
     const P = jetPose(t);
     root.position.copy(P.pos);
     root.quaternion.copy(P.quat);
-    rig.set({ fold: 0, stabFold: 0, gear: 0, hook: 0, canards: -0.08 * sm(5.6, 6.4, t), stabs: -0.12 * sm(5.6, 6.4, t), ab: 0.25 + 0.75 * sm(9.9, 10.4, t) });
+    rig.set({ fold: 0, stabFold: 0, gear: 0, hook: 0, canards: -0.08 * sm(5.6, 6.4, t), stabs: -0.12 * sm(5.6, 6.4, t), ab: 0.25 + 0.75 * sm(T_GO - 0.3, T_GO + 0.2, t) });
     jet.update(t);
     root.updateMatrixWorld(true);
+    // wingmen: climb in from behind/below on partial burner, settle into the slot, hold; far-left rolls inverted
+    for (const w of WING) {
+      const a = (t - w.t0) / JOIN;
+      w.m.root.visible = a > 0;
+      if (a <= 0) continue;
+      const k = 1 - Math.pow(1 - clamp01(a), 3);
+      const side = Math.sign(w.slot[2]);
+      w.m.root.position.set(
+        P.pos.x + w.slot[0] - 30 * (1 - k),
+        P.pos.y + w.slot[1] - 40 * (1 - k) + 0.3 * Math.sin(t * 0.8 + w.slot[2]),
+        w.slot[2] + side * 10 * (1 - k),
+      );
+      const roll = -side * 0.3 * Math.sin(Math.PI * clamp01(a)) + (w.inverted ? -Math.PI * sm(13.0, 14.3, t) : 0)
+        + 0.03 * Math.sin(t * 1.1 + w.slot[0]);
+      const pitch = 0.35 * (1 - k) + 0.02 * Math.sin(t * 0.7 + w.slot[2]);
+      _e.set(roll, 0, pitch, 'XYZ');
+      w.m.root.quaternion.setFromEuler(_e);
+      const ab = Math.max(0.25 + 0.55 * (1 - k), 0.25 + 0.75 * sm(T_GO - 0.3, T_GO + 0.2, t));
+      w.m.rig.set({ fold: 0, stabFold: 0, gear: 0, hook: 0, ab, stabs: -0.1 * (1 - k) });
+      w.m.update(t);
+      w.m.root.updateMatrixWorld(true);
+    }
     cameraAt(t);
     aimLights(camera, camTgt, lights);
     backdrop.update(t, camera);
@@ -310,7 +361,8 @@ export function createWeaponsScene(ctx) {
     },
     labels() {
       if (lastT > 0.5 && lastT < 5.3) return [{ id: 'wpn', text: 'R-27ER / R-27ET / R-73 LAUNCH', x: 0.06, y: 0.9 }];
-      if (lastT > 5.8 && lastT < 11.6) return [{ id: 'wpn', text: 'FLARES', x: 0.06, y: 0.9 }];
+      if (lastT > 5.8 && lastT < 9.6) return [{ id: 'wpn', text: 'FLARES', x: 0.06, y: 0.9 }];
+      if (lastT > 10.4 && lastT < 17.6) return [{ id: 'wpn', text: 'FORMATION', x: 0.06, y: 0.9 }];
       return [];
     },
   };
